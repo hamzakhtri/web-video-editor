@@ -41,7 +41,7 @@ export const QUALITY_PRESETS = {
   balanced: {
     label: 'Balanced',
     hint: 'Clean pictures, moderate file',
-    quantizer: 21,
+    quantizer: 18,
     videoBitrate: 12_000_000,
     audioBitrate: 160_000,
     mbPerMin: 0,
@@ -49,7 +49,7 @@ export const QUALITY_PRESETS = {
   high: {
     label: 'High',
     hint: 'Matches the pictures, without a bulky file',
-    quantizer: 16,
+    quantizer: 14,
     videoBitrate: 16_000_000,
     audioBitrate: 192_000,
     mbPerMin: 0,

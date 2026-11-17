@@ -67,29 +67,53 @@ async function encodePass({
       return false;
     }
   };
-  const gpuOptions = {
+  const quantizerReady = async (acceleration) => {
+    if (!quantizer || typeof VideoEncoder === 'undefined') return false;
+    try {
+      const support = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.640028',
+        width: WIDTH,
+        height: HEIGHT,
+        framerate: FPS,
+        bitrateMode: 'quantizer',
+        hardwareAcceleration: acceleration,
+        latencyMode: 'quality',
+        avc: { format: 'avc' },
+      });
+      return Boolean(support.supported);
+    } catch {
+      return false;
+    }
+  };
+  const sharp = quantizer
+    ? new Quality({ quantizer, bitrate: videoBitrate, bitrateMode: 'variable' })
+    : null;
+  const gpuSharp = {
     width: WIDTH,
     height: HEIGHT,
     frameRate: FPS,
-    quality: new Quality({ bitrate: videoBitrate, bitrateMode: 'variable' }),
+    quality: sharp,
     hardwareAcceleration: 'prefer-hardware',
-    latencyMode: 'realtime',
+    latencyMode: 'quality',
     contentHint: 'detail',
   };
-  const cpuOptions = {
+  const cpuSharp = {
+    ...gpuSharp,
+    hardwareAcceleration: 'prefer-software',
+  };
+  const cpuBits = {
     width: WIDTH,
     height: HEIGHT,
     frameRate: FPS,
-    quality: quantizer
-      ? new Quality({ quantizer, bitrate: videoBitrate, bitrateMode: 'variable' })
-      : new Quality({ bitrate: videoBitrate, bitrateMode }),
+    quality: new Quality({ bitrate: videoBitrate, bitrateMode: 'constant' }),
     hardwareAcceleration: 'prefer-software',
     latencyMode: 'quality',
     contentHint: 'detail',
   };
   let videoOptions = null;
-  if (await supports(cpuOptions)) videoOptions = cpuOptions;
-  else if (await supports(gpuOptions)) videoOptions = gpuOptions;
+  if (sharp && await quantizerReady('prefer-hardware')) videoOptions = gpuSharp;
+  else if (sharp && await quantizerReady('prefer-software')) videoOptions = cpuSharp;
+  else if (await supports(cpuBits)) videoOptions = cpuBits;
   if (!videoOptions) {
     throw new Error('H.264 encoding is not available here. Open Lumina in Chrome or Edge to export MP4.');
   }
@@ -177,7 +201,7 @@ async function encodePass({
           captionStyle,
           width: WIDTH,
           height: HEIGHT,
-          smoothing: 'low',
+          smoothing: 'medium',
         });
         if (previewCtx && (index % 6 === 0 || index === frames - 1)) {
           previewCtx.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);

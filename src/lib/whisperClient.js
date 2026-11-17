@@ -121,7 +121,7 @@ export function preloadWhisper() {
       } catch {
         prefer = null;
       }
-      if (prefer === 'ok') prefer = null;
+      if (prefer === 'ok' || prefer === 'q8' || prefer === 'skip') prefer = null;
       worker.postMessage({ type: 'load', prefer });
     });
   }

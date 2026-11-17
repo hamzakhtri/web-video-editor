@@ -47,22 +47,47 @@ function report(update) {
   });
 }
 
-async function hasWebGPU() {
-  if (!navigator.gpu) return false;
+async function inspectGpu() {
+  if (!navigator.gpu) return null;
   try {
-    const adapter = await navigator.gpu.requestAdapter();
-    return Boolean(adapter);
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    if (!adapter) return null;
+    const info = adapter.info || {};
+    return {
+      f16: adapter.features?.has?.('shader-f16') === true,
+      vendor: String(info.vendor || '').toLowerCase(),
+      architecture: String(info.architecture || '').toLowerCase(),
+      description: String(info.description || info.device || ''),
+    };
   } catch {
-    return false;
+    return null;
   }
+}
+
+function gpuDtype(gpu, prefer) {
+  if (!gpu) return null;
+  const text = `${gpu.description} ${gpu.architecture}`;
+  const oldIntel = gpu.vendor.includes('intel') && gpu.architecture.startsWith('gen');
+  const pascal = /pascal|quadro p\d|gtx 10\d{2}|gtx 9\d{2}/i.test(text);
+  const integrated = /radeon\(tm\)|vega|renoir|cezanne|lucienne|barcelo/i.test(text)
+    && !/rx|pro|quadro|geforce|rtx|gtx/i.test(text);
+  if (oldIntel) return null;
+  if (prefer === 'fp32' || pascal) return 'fp32';
+  if (gpu.f16 && prefer !== 'fp32') return 'fp16';
+  if (integrated) return null;
+  return 'fp32';
 }
 
 async function loadModel(prefer) {
   if (transcriber) return transcriber.device;
+  const gpu = await inspectGpu();
+  const dtype = gpuDtype(gpu, prefer);
   const attempts = [];
-  if (prefer !== 'skip' && await hasWebGPU()) {
-    if (prefer !== 'q8') attempts.push({ model: MODEL, device: 'webgpu', dtype: 'fp16', label: 'GPU' });
-    attempts.push({ model: MODEL, device: 'webgpu', dtype: 'q8', label: 'GPU' });
+  if (dtype === 'fp16') {
+    attempts.push({ model: MODEL, device: 'webgpu', dtype: 'fp16', label: 'GPU fp16' });
+    attempts.push({ model: MODEL, device: 'webgpu', dtype: 'fp32', label: 'GPU fp32' });
+  } else if (dtype === 'fp32') {
+    attempts.push({ model: MODEL, device: 'webgpu', dtype: 'fp32', label: 'GPU fp32' });
   }
   attempts.push({ model: MODEL, device: 'wasm', dtype: 'q8', label: 'CPU' });
   attempts.push({ model: FALLBACK_MODEL, device: 'wasm', dtype: 'q8', label: 'CPU' });
@@ -74,7 +99,7 @@ async function loadModel(prefer) {
       self.postMessage({
         type: 'progress',
         progress: 0,
-        file: attempt.label === 'GPU' ? 'Whisper Small on GPU' : 'Whisper Small',
+        file: attempt.device === 'webgpu' ? `Whisper Small on ${attempt.label}` : 'Whisper Small',
         status: 'initiate',
       });
       const model = await pipeline('automatic-speech-recognition', attempt.model, {
@@ -85,7 +110,7 @@ async function loadModel(prefer) {
       transcriber = {
         model,
         device: attempt.label,
-        gpu: attempt.label === 'GPU' ? attempt.dtype : 'skip',
+        gpu: attempt.device === 'webgpu' ? attempt.dtype : 'wasm',
       };
       self.postMessage({
         type: 'progress',
@@ -155,11 +180,12 @@ self.onmessage = async (event) => {
         label: 'Listening to the voice…',
       });
       const pulse = setInterval(() => {
-        progress = Math.min(0.92, progress + 0.07);
+        const gap = 0.99 - progress;
+        progress = Math.min(0.99, progress + Math.max(0.004, gap * 0.18));
         self.postMessage({
           type: 'listen',
           progress,
-          label: 'Listening to the voice…',
+          label: progress > 0.8 ? 'Still listening… long audio stays on this step' : 'Listening to the voice…',
         });
       }, 800);
       try {
