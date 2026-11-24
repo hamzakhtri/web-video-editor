@@ -232,6 +232,31 @@ export async function voiceToWhisperSamples(buffer) {
   return normalizePeak(copy);
 }
 
+export function clampVoiceGain(value) {
+  const gain = Number(value);
+  if (!Number.isFinite(gain)) return 1;
+  return Math.min(3, Math.max(0, gain));
+}
+
+export function applyVoiceGain(buffer, gain) {
+  const amount = clampVoiceGain(gain);
+  if (!buffer || Math.abs(amount - 1) < 0.001) return buffer;
+  const out = new AudioBuffer({
+    length: buffer.length,
+    numberOfChannels: buffer.numberOfChannels,
+    sampleRate: buffer.sampleRate,
+  });
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const src = buffer.getChannelData(channel);
+    const dst = out.getChannelData(channel);
+    for (let index = 0; index < src.length; index += 1) {
+      const sample = src[index] * amount;
+      dst[index] = sample > 1 ? 1 : sample < -1 ? -1 : sample;
+    }
+  }
+  return out;
+}
+
 export async function trimAudioBuffer(buffer, seconds) {
   const frames = Math.min(buffer.length, Math.max(1, Math.floor(seconds * buffer.sampleRate)));
   if (frames >= buffer.length - 1) return buffer;

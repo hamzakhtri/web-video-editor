@@ -54,12 +54,15 @@ export default function Inspector({
   onRemoveCue,
   onSeek,
   onSetTranscript,
+  onSetCaptionJson,
 }) {
   const panelRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState('home');
   const [lookOpen, setLookOpen] = useState(false);
   const [draft, setDraft] = useState(null);
+  const [jsonOpen, setJsonOpen] = useState(false);
+  const [jsonText, setJsonText] = useState('');
   const transcript = cues.map((cue) => cue.text).join('\n');
   useEffect(() => {
     setDraft(null);
@@ -169,6 +172,31 @@ export default function Inspector({
             >
               Set transcript
             </button>
+            <button type="button" className="text-btn" onClick={() => setJsonOpen((open) => !open)}>
+              {jsonOpen ? 'Hide JSON' : 'Paste JSON'}
+            </button>
+            {jsonOpen && (
+              <>
+                <label className="paste">
+                  Fixed caption JSON
+                  <textarea
+                    value={jsonText}
+                    spellCheck={false}
+                    aria-label="Caption JSON"
+                    placeholder={'{\n  "cues": [\n    { "start": 0, "end": 2, "text": "Corrected line" }\n  ]\n}'}
+                    onChange={(event) => setJsonText(event.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="ghost"
+                  disabled={!jsonText.trim() || busy}
+                  onClick={() => onSetCaptionJson(jsonText)}
+                >
+                  Set JSON
+                </button>
+              </>
+            )}
           </div>
           <div className="cues">
             {cues.length === 0 && !listening && <p className="quiet">Captions appear here as soon as the voice is added.</p>}

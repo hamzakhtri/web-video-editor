@@ -5,13 +5,13 @@ import StudioLoader, { markStudioReady } from './components/StudioLoader.jsx';
 import MediaBin from './components/MediaBin.jsx';
 import PreviewPane from './components/PreviewPane.jsx';
 import TimelineBar from './components/TimelineBar.jsx';
-import { audioBufferToWavBlob, decodeAudioFile, isVoiceFile, voiceToWhisperSamples } from './lib/audio.js';
+import { audioBufferToWavBlob, clampVoiceGain, decodeAudioFile, isVoiceFile, voiceToWhisperSamples } from './lib/audio.js';
 import { DEFAULT_CAPTION_STYLE, DEFAULT_MOTION, DEFAULT_QUALITY, EFFECTS, QUALITY_PRESETS } from './lib/constants.js';
 import { createDemoProject } from './lib/demo.js';
 import { startExport } from './lib/exportMp4.js';
 import { loadImageFile } from './lib/images.js';
 import { ensureFonts } from './lib/render.js';
-import { applyTranscriptText, buildCues, retimedWords } from './lib/subtitles.js';
+import { applyTranscriptText, buildCues, cuesFromTranscriptJson, retimedWords } from './lib/subtitles.js';
 import {
   buildSlidesFromImages,
   fitDurations,
@@ -71,6 +71,7 @@ export default function App() {
   const [captionOffset, setCaptionOffset] = useState(Number.isFinite(savedMeta.captionOffset) ? savedMeta.captionOffset : 0);
   const [captionScale, setCaptionScale] = useState(Number.isFinite(savedMeta.captionScale) ? savedMeta.captionScale : 1);
   const [captionStyle, setCaptionStyle] = useState(savedStyle(savedMeta.captionStyle));
+  const [voiceGain, setVoiceGain] = useState(clampVoiceGain(savedMeta.voiceGain));
   const [mediaReady, setMediaReady] = useState(false);
   const [undoCount, setUndoCount] = useState(0);
   const [lastExport, setLastExport] = useState(null);
@@ -235,6 +236,7 @@ export default function App() {
         captionOffset,
         captionScale,
         captionStyle,
+        voiceGain,
       });
       const signature = `${audio?.id || ''}|${images.map((image) => image.key).join(',')}`;
       if (!allowMediaSave.current || signature === mediaSig.current) return;
@@ -243,7 +245,7 @@ export default function App() {
       saveMedia({ audio, images, audioBlob: blob }).catch(() => {});
     }, 400);
     return () => clearTimeout(timer);
-  }, [mediaReady, slides, cues, selectedId, language, quality, captionOffset, captionScale, captionStyle, audio, images]);
+  }, [mediaReady, slides, cues, selectedId, language, quality, captionOffset, captionScale, captionStyle, voiceGain, audio, images]);
 
   useEffect(() => {
     if (model.listenProgress == null) return;
@@ -301,6 +303,7 @@ export default function App() {
     captionOffset,
     captionScale,
     captionStyle,
+    voiceGain,
   });
 
   const remember = () => {
@@ -338,6 +341,7 @@ export default function App() {
     setCaptionOffset(prev.captionOffset);
     setCaptionScale(prev.captionScale);
     setCaptionStyle(prev.captionStyle);
+    setVoiceGain(clampVoiceGain(prev.voiceGain));
     setUndoCount(historyRef.current.length);
     if (prev.audio) heardRef.current = `${prev.audio.id}|${prev.language}`;
     setNotice('Last change undone.');
@@ -639,6 +643,7 @@ export default function App() {
         imageMap: dataRef.current.imageMap,
         cues: burned,
         audioBuffer: audioRef.current.buffer,
+        voiceGain,
         offset: captionOffset,
         scale: captionScale,
         captionStyle,
@@ -747,6 +752,10 @@ export default function App() {
           onDemo={loadDemo}
           onReset={resetProject}
           onApplyJson={applyJson}
+          voiceGain={voiceGain}
+          onVoiceGain={(value) => commit(() => setVoiceGain(clampVoiceGain(value)))}
+          onBeginEdit={beginEdit}
+          onEndEdit={endEdit}
           busy={busy}
         />
         <PreviewPane
@@ -757,6 +766,7 @@ export default function App() {
           revision={revision}
           frozen={busy}
           seekAt={seekAt}
+          voiceGain={voiceGain}
           onTime={setTime}
           onPlaying={setPlaying}
           onCanvas={takeCanvas}
@@ -828,6 +838,17 @@ export default function App() {
             commit(() => setCues((current) => applyTranscriptText(current, text)));
             endEdit();
             setNotice('Transcript set. The video now uses these words.');
+          }}
+          onSetCaptionJson={(text) => {
+            try {
+              const next = cuesFromTranscriptJson(text);
+              beginEdit();
+              commit(() => setCues(next));
+              endEdit();
+              setNotice(`Captions set from JSON. ${next.length} lines.`);
+            } catch (error) {
+              setNotice(error.message);
+            }
           }}
           onEditCue={(id, text) => {
             commit(() => setCues((current) => current.map((cue) => (

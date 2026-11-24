@@ -205,6 +205,15 @@ h2 {
   font-size: 12px;
   line-height: 1.45;
 }
+.voice-volume {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.voice-volume input[type="range"] { width: 100%; accent-color: var(--accent); }
+.voice-volume small { color: var(--faint); font-size: 12px; }
 .bin-actions { margin-top: 12px; }
 .bin-actions button, .row-actions button, .ghost, .play, .text-btn {
   border: 1px solid var(--line);

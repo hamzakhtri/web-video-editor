@@ -11,7 +11,7 @@ import {
 import { FPS, HEIGHT, QUALITY_PRESETS, WIDTH } from './constants.js';
 import { paintFrame, prepareExportSources } from './render.js';
 import { projectDuration } from './timeline.js';
-import { trimAudioBuffer } from './audio.js';
+import { applyVoiceGain, trimAudioBuffer } from './audio.js';
 
 function abortError() {
   return new DOMException('Export cancelled', 'AbortError');
@@ -42,6 +42,7 @@ async function encodePass({
   imageMap,
   cues,
   audioBuffer,
+  voiceGain,
   offset,
   scale,
   captionStyle,
@@ -176,7 +177,7 @@ async function encodePass({
 
     if (audioSource) {
       onProgress?.(0, 'Encoding the voiceover');
-      const trimmed = await trimAudioBuffer(audioBuffer, duration);
+      const trimmed = await trimAudioBuffer(applyVoiceGain(audioBuffer, voiceGain), duration);
       await audioSource.add(trimmed);
     }
 

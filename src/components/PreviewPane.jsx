@@ -11,12 +11,14 @@ export default function PreviewPane({
   revision,
   frozen,
   seekAt,
+  voiceGain,
   onTime,
   onPlaying,
   onCanvas,
 }) {
   const canvasRef = useRef(null);
   const audioRef = useRef(null);
+  const graphRef = useRef(null);
   const rangeRef = useRef(null);
   const labelRef = useRef(null);
   const timeRef = useRef(time);
@@ -28,6 +30,45 @@ export default function PreviewPane({
   useEffect(() => { onTimeRef.current = onTime; }, [onTime]);
   useEffect(() => { onPlayingRef.current = onPlaying; }, [onPlaying]);
   useEffect(() => { onCanvas?.(canvasRef.current); }, [onCanvas]);
+
+  const setVoiceGain = (gain) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const amount = Number.isFinite(gain) ? Math.max(0, gain) : 1;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) {
+      audio.volume = Math.min(1, amount);
+      return;
+    }
+    try {
+      if (!graphRef.current) {
+        const ctx = new Ctx();
+        const source = ctx.createMediaElementSource(audio);
+        const node = ctx.createGain();
+        source.connect(node);
+        node.connect(ctx.destination);
+        graphRef.current = { ctx, node };
+      }
+      graphRef.current.node.gain.value = amount;
+      audio.volume = 1;
+    } catch {
+      audio.volume = Math.min(1, amount);
+    }
+  };
+
+  useEffect(() => {
+    setVoiceGain(voiceGain);
+  }, [voiceGain, audioUrl]);
+
+  useEffect(() => {
+    const resume = () => { graphRef.current?.ctx.resume?.(); };
+    window.addEventListener('pointerdown', resume);
+    window.addEventListener('keydown', resume);
+    return () => {
+      window.removeEventListener('pointerdown', resume);
+      window.removeEventListener('keydown', resume);
+    };
+  }, []);
 
   const draw = (at) => {
     const canvas = canvasRef.current;
@@ -83,6 +124,7 @@ export default function PreviewPane({
 
     const limit = dataRef.current.duration || 0;
     if (timeRef.current >= limit - 0.04) timeRef.current = 0;
+    graphRef.current?.ctx.resume?.();
     if (audio && audioUrl) {
       const next = Math.min(timeRef.current, Math.max(0, (audio.duration || limit) - 0.001));
       if (Number.isFinite(next)) audio.currentTime = next;

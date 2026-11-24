@@ -13,6 +13,10 @@ export default function MediaBin({
   onDemo,
   onReset,
   onApplyJson,
+  voiceGain,
+  onVoiceGain,
+  onBeginEdit,
+  onEndEdit,
   busy,
 }) {
   const [jsonText, setJsonText] = useState(SAMPLE_TEXT);
@@ -38,6 +42,26 @@ export default function MediaBin({
         <span className="drop-kicker">Voiceover</span>
         <strong>{audio ? audio.name : 'Drop the voice'}</strong>
         <small>{audio ? formatTime(audio.duration) : 'WAV, MPEG, MP3, or M4A'}</small>
+      </label>
+      <label className="voice-volume">
+        Voice volume
+        <input
+          type="range"
+          min="0"
+          max="3"
+          step="0.05"
+          value={voiceGain}
+          disabled={!audio || busy}
+          aria-label="Voice volume"
+          onPointerDown={onBeginEdit}
+          onPointerUp={onEndEdit}
+          onBlur={onEndEdit}
+          onChange={(event) => onVoiceGain(Number(event.target.value))}
+        />
+        <small>
+          {Math.round(voiceGain * 100)}%
+          {voiceGain < 0.02 ? ' · muted' : voiceGain > 1.02 ? ' · louder in the preview and the MP4' : ' · same as the file'}
+        </small>
       </label>
 
       <label className="drop">

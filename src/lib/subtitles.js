@@ -134,6 +134,41 @@ export function applyTranscriptText(cues, text) {
   return next;
 }
 
+export function cuesFromTranscriptJson(raw) {
+  let data;
+  try {
+    data = JSON.parse(String(raw || '').trim());
+  } catch {
+    throw new Error('That text is not valid JSON.');
+  }
+  const list = Array.isArray(data) ? data : data?.cues;
+  if (!Array.isArray(list)) throw new Error('Caption JSON needs a cues list.');
+  const cues = [];
+  list.forEach((item) => {
+    const text = String(item?.text || '').replace(/\s+/g, ' ').trim();
+    const start = Number(item?.start);
+    let end = Number(item?.end);
+    const duration = Number(item?.duration);
+    if (!text || !Number.isFinite(start) || start < 0) return;
+    if (!Number.isFinite(end) || end <= start) {
+      end = start + (Number.isFinite(duration) && duration > 0 ? duration : 2);
+    }
+    const cue = {
+      id: crypto.randomUUID(),
+      start,
+      end,
+      text,
+      edited: true,
+      words: [],
+    };
+    cue.words = retimedWords(cue, text);
+    cues.push(cue);
+  });
+  if (!cues.length) throw new Error('No captions found in that JSON.');
+  cues.sort((a, b) => a.start - b.start);
+  return cues;
+}
+
 export function retimedWords(cue, text) {
   const parts = text.split(/\s+/).filter(Boolean);
   if (!parts.length) return [];
