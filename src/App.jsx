@@ -543,6 +543,18 @@ export default function App() {
     });
   };
 
+  const removeImage = (key) => {
+    if (busy || !imagesRef.current.some((image) => image.key === key)) return;
+    remember();
+    setImages((current) => current.filter((image) => image.key !== key));
+  };
+
+  const clearImages = () => {
+    if (busy || !imagesRef.current.length) return;
+    remember();
+    setImages([]);
+  };
+
   const addSlide = () => {
     if (!images.length) return;
     remember();
@@ -756,6 +768,8 @@ export default function App() {
           onVoiceGain={(value) => commit(() => setVoiceGain(clampVoiceGain(value)))}
           onBeginEdit={beginEdit}
           onEndEdit={endEdit}
+          onRemoveImage={removeImage}
+          onClearImages={clearImages}
           busy={busy}
         />
         <PreviewPane

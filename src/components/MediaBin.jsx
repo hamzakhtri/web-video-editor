@@ -17,6 +17,8 @@ export default function MediaBin({
   onVoiceGain,
   onBeginEdit,
   onEndEdit,
+  onRemoveImage,
+  onClearImages,
   busy,
 }) {
   const [jsonText, setJsonText] = useState(SAMPLE_TEXT);
@@ -64,6 +66,10 @@ export default function MediaBin({
         </small>
       </label>
 
+      <div className="bin-head pictures-head">
+        <span className="drop-kicker">Pictures</span>
+        <button type="button" className="text-btn" onClick={onClearImages} disabled={!images.length || busy}>Remove all</button>
+      </div>
       <label className="drop">
         <input
           type="file"
@@ -74,7 +80,6 @@ export default function MediaBin({
             event.target.value = '';
           }}
         />
-        <span className="drop-kicker">Pictures</span>
         <strong>{images.length ? `${images.length} loaded` : 'Name them 1.jpg, 2.jpg'}</strong>
         <small>JPEG, PNG, or WebP</small>
       </label>
@@ -84,6 +89,15 @@ export default function MediaBin({
           {images.map((image) => (
             <figure key={image.key} className="thumb">
               <img src={image.thumb} alt="" />
+              <button
+                type="button"
+                className="thumb-x"
+                aria-label={`Remove ${image.key}`}
+                disabled={busy}
+                onClick={() => onRemoveImage(image.key)}
+              >
+                ×
+              </button>
               <figcaption>{image.key}</figcaption>
             </figure>
           ))}
