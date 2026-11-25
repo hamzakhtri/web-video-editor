@@ -23,7 +23,8 @@ export function formatTime(seconds) {
 export function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function normalizeEffect(value, index) {

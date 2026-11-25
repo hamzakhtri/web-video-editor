@@ -1,17 +1,18 @@
 import {
   AudioBufferSource,
-  BufferTarget,
   CanvasSource,
   Mp4OutputFormat,
   Output,
   Quality,
+  StreamTarget,
   canEncodeAudio,
   canEncodeVideo,
 } from 'mediabunny';
+import { applyVoiceGain, trimAudioBuffer } from './audio.js';
+import { createChunkedBytes } from './chunkedFile.js';
 import { FPS, HEIGHT, QUALITY_PRESETS, WIDTH } from './constants.js';
 import { paintFrame, prepareExportSources } from './render.js';
 import { projectDuration } from './timeline.js';
-import { applyVoiceGain, trimAudioBuffer } from './audio.js';
 
 function abortError() {
   return new DOMException('Export cancelled', 'AbortError');
@@ -134,9 +135,16 @@ async function encodePass({
   const { canvas, ctx } = makeCanvas(WIDTH, HEIGHT);
   if (!ctx) throw new Error('Could not start the frame renderer.');
 
-  const target = new BufferTarget();
+  // Piecewise storage: one ArrayBuffer cannot be turned into a Blob past 2GB,
+  // and the in-memory target also stops at 4GB after the frames are already encoded.
+  const file = createChunkedBytes();
+  const target = new StreamTarget(new WritableStream({
+    write(chunk) {
+      file.write(chunk.data, chunk.position);
+    },
+  }));
   const output = new Output({
-    format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+    format: new Mp4OutputFormat({ fastStart: false }),
     target,
   });
 
@@ -221,11 +229,11 @@ async function encodePass({
 
     onProgress?.(1, 'Wrapping the MP4');
     await output.finalize();
-    if (!target.buffer) throw new Error('The encoder finished without a file.');
-    const blob = new Blob([target.buffer], { type: 'video/mp4' });
+    if (!file.size) throw new Error('The encoder finished without a file.');
+    const blob = file.toBlob('video/mp4');
     return {
       url: URL.createObjectURL(blob),
-      size: target.buffer.byteLength,
+      size: file.size,
       frames,
     };
   } catch (error) {
