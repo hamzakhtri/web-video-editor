@@ -48,8 +48,8 @@ export const QUALITY_PRESETS = {
   },
   high: {
     label: 'High',
-    hint: 'Matches the pictures, without a bulky file',
-    quantizer: 14,
+    hint: 'Matches the pictures, with a lighter file',
+    quantizer: 16,
     videoBitrate: 16_000_000,
     audioBitrate: 192_000,
     mbPerMin: 0,

@@ -12,7 +12,7 @@ import { applyVoiceGain, trimAudioBuffer } from './audio.js';
 import { createChunkedBytes } from './chunkedFile.js';
 import { FPS, HEIGHT, QUALITY_PRESETS, WIDTH } from './constants.js';
 import { paintFrame, prepareExportSources } from './render.js';
-import { projectDuration } from './timeline.js';
+import { locateSlide, projectDuration } from './timeline.js';
 
 function abortError() {
   return new DOMException('Export cancelled', 'AbortError');
@@ -154,7 +154,7 @@ async function encodePass({
     hardwareAcceleration: videoOptions.hardwareAcceleration,
     latencyMode: videoOptions.latencyMode,
     contentHint: 'detail',
-    keyFrameInterval: usingGpu ? 4 : (quantizer ? 4 : 2),
+    keyFrameInterval: 8,
     alpha: 'discard',
   });
   output.addVideoTrack(videoSource, { frameRate: FPS });
@@ -193,6 +193,7 @@ async function encodePass({
     const prepared = await prepareExportSources(imageMap, WIDTH, HEIGHT);
     markStarted?.();
     const previewCtx = previewCanvas?.getContext('2d');
+    let previousImage = '';
     try {
       for (let index = 0; index < frames; index += 1) {
         if (isAborted()) {
@@ -215,7 +216,10 @@ async function encodePass({
         if (previewCtx && (index % 6 === 0 || index === frames - 1)) {
           previewCtx.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
         }
-        await videoSource.add(time, 1 / FPS);
+        const image = slides[locateSlide(slides, time)?.index]?.image || '';
+        const cut = image !== previousImage;
+        previousImage = image;
+        await videoSource.add(time, 1 / FPS, cut ? { keyFrame: true } : undefined);
         if (index % 8 === 0 || index === frames - 1) {
           onProgress?.(
             (index + 1) / frames,
