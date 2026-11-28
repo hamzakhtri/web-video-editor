@@ -128,7 +128,7 @@ export default function App() {
   };
 
   const revision = useMemo(() => [
-    slides.map((slide) => `${slide.id}:${slide.image}:${slide.duration}:${slide.effect}:${slide.speed}`).join('|'),
+    slides.map((slide) => `${slide.id}:${slide.image}:${slide.duration}:${slide.effect}:${slide.speed}:${slide.sound || ''}`).join('|'),
     images.map((image) => image.key).join(','),
     cues.map((cue) => `${cue.id}:${cue.start}:${cue.end}:${cue.text}`).join('|'),
     captionOffset,

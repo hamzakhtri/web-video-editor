@@ -132,6 +132,7 @@ export default function MediaBin({
 
       <label className="paste">
         Paste JSON
+        <small>Put "sound": "shukkk" on any slide that should whoosh.</small>
         <textarea
           value={jsonText}
           spellCheck={false}

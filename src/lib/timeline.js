@@ -54,12 +54,14 @@ export function parseTimeline(data) {
       throw new Error(`Slide ${index + 1} needs a duration in seconds, greater than 0.`);
     }
     const speed = Number(raw.speed ?? raw.motion);
+    const sound = String(raw.sound ?? raw.sfx ?? '').trim().toLowerCase();
     return {
       id: crypto.randomUUID(),
       image,
       duration,
       effect: normalizeEffect(raw.effect, index),
       speed: Number.isFinite(speed) ? Math.min(1.6, Math.max(0.25, speed)) : DEFAULT_MOTION,
+      sound: sound === 'shukkk' ? 'shukkk' : '',
     };
   });
 }

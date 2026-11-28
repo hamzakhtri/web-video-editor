@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { HEIGHT, WIDTH } from '../lib/constants.js';
 import { paintFrame } from '../lib/render.js';
-import { formatTime } from '../lib/timeline.js';
+import { makeShukkk } from '../lib/sfx.js';
+import { formatTime, locateSlide } from '../lib/timeline.js';
 
 export default function PreviewPane({
   dataRef,
@@ -19,6 +20,8 @@ export default function PreviewPane({
   const canvasRef = useRef(null);
   const audioRef = useRef(null);
   const graphRef = useRef(null);
+  const sfxRef = useRef(null);
+  const heardSlide = useRef(-1);
   const rangeRef = useRef(null);
   const labelRef = useRef(null);
   const timeRef = useRef(time);
@@ -30,6 +33,40 @@ export default function PreviewPane({
   useEffect(() => { onTimeRef.current = onTime; }, [onTime]);
   useEffect(() => { onPlayingRef.current = onPlaying; }, [onPlaying]);
   useEffect(() => { onCanvas?.(canvasRef.current); }, [onCanvas]);
+
+  const playShukkk = () => {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+      if (!sfxRef.current) {
+        const ctx = new Ctx();
+        sfxRef.current = { ctx, buffer: makeShukkk(ctx.sampleRate) };
+      }
+      const { ctx, buffer } = sfxRef.current;
+      ctx.resume?.();
+      const source = ctx.createBufferSource();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.7 * (Number.isFinite(voiceGain) ? Math.max(0, voiceGain) : 1);
+      source.buffer = buffer;
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      source.start();
+    } catch {
+      /* a missed whoosh should not stop playback */
+    }
+  };
+
+  const hearSlide = (at, fire) => {
+    const located = locateSlide(dataRef.current.slides || [], at);
+    if (!located) return;
+    const previous = heardSlide.current;
+    heardSlide.current = located.index;
+    if (!fire) return;
+    const slide = dataRef.current.slides[located.index];
+    const started = previous < 0 && located.local < 0.2;
+    const entered = previous >= 0 && located.index !== previous && located.local < 0.25;
+    if ((started || entered) && slide?.sound === 'shukkk') playShukkk();
+  };
 
   const setVoiceGain = (gain) => {
     const audio = audioRef.current;
@@ -124,6 +161,8 @@ export default function PreviewPane({
 
     const limit = dataRef.current.duration || 0;
     if (timeRef.current >= limit - 0.04) timeRef.current = 0;
+    heardSlide.current = -1;
+    hearSlide(timeRef.current, true);
     graphRef.current?.ctx.resume?.();
     if (audio && audioUrl) {
       const next = Math.min(timeRef.current, Math.max(0, (audio.duration || limit) - 0.001));
@@ -160,6 +199,7 @@ export default function PreviewPane({
       timeRef.current = next;
       showTime(next);
       draw(next);
+      hearSlide(next, true);
       if (now - lastEmit > 90) {
         lastEmit = now;
         onTimeRef.current(next);

@@ -2,7 +2,7 @@
   "slides": [
     { "image": "1", "duration": 4.5, "effect": "zoom-in" },
     { "image": "2", "duration": 5.0, "effect": "pan-right" },
-    { "image": "3", "duration": 4.2, "effect": "ken-burns" },
+    { "image": "3", "duration": 4.2, "effect": "ken-burns", "sound": "shukkk" },
     { "image": "4", "duration": 3.8, "effect": "zoom-out" },
     { "image": "5", "duration": 4.6, "effect": "pan-left" }
   ]

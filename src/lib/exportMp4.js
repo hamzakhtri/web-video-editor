@@ -10,6 +10,7 @@ import {
 } from 'mediabunny';
 import { applyVoiceGain, trimAudioBuffer } from './audio.js';
 import { createChunkedBytes } from './chunkedFile.js';
+import { mixShukkk } from './sfx.js';
 import { FPS, HEIGHT, QUALITY_PRESETS, WIDTH } from './constants.js';
 import { paintFrame, prepareExportSources } from './render.js';
 import { locateSlide, projectDuration } from './timeline.js';
@@ -50,7 +51,6 @@ async function encodePass({
   bitrateMode,
   videoBitrate,
   audioBitrate,
-  quantizer,
   previewCanvas,
   onProgress,
   isAborted,
@@ -69,52 +69,21 @@ async function encodePass({
       return false;
     }
   };
-  const quantizerReady = async (acceleration) => {
-    if (!quantizer || typeof VideoEncoder === 'undefined') return false;
-    try {
-      const support = await VideoEncoder.isConfigSupported({
-        codec: 'avc1.640028',
-        width: WIDTH,
-        height: HEIGHT,
-        framerate: FPS,
-        bitrateMode: 'quantizer',
-        hardwareAcceleration: acceleration,
-        latencyMode: 'quality',
-        avc: { format: 'avc' },
-      });
-      return Boolean(support.supported);
-    } catch {
-      return false;
-    }
-  };
-  const sharp = quantizer
-    ? new Quality({ quantizer, bitrate: videoBitrate, bitrateMode: 'variable' })
-    : null;
-  const gpuSharp = {
-    width: WIDTH,
-    height: HEIGHT,
-    frameRate: FPS,
-    quality: sharp,
-    hardwareAcceleration: 'prefer-hardware',
-    latencyMode: 'quality',
-    contentHint: 'detail',
-  };
-  const cpuSharp = {
-    ...gpuSharp,
-    hardwareAcceleration: 'prefer-software',
-  };
-  const cpuBits = {
+  const capped = {
     width: WIDTH,
     height: HEIGHT,
     frameRate: FPS,
     quality: new Quality({ bitrate: videoBitrate, bitrateMode: 'constant' }),
-    hardwareAcceleration: 'prefer-software',
+    hardwareAcceleration: 'prefer-hardware',
     latencyMode: 'quality',
     contentHint: 'detail',
   };
+  const cpuBits = {
+    ...capped,
+    hardwareAcceleration: 'prefer-software',
+  };
   let videoOptions = null;
-  if (sharp && await quantizerReady('prefer-hardware')) videoOptions = gpuSharp;
-  else if (sharp && await quantizerReady('prefer-software')) videoOptions = cpuSharp;
+  if (await supports(capped)) videoOptions = capped;
   else if (await supports(cpuBits)) videoOptions = cpuBits;
   if (!videoOptions) {
     throw new Error('H.264 encoding is not available here. Open Lumina in Chrome or Edge to export MP4.');
@@ -154,7 +123,7 @@ async function encodePass({
     hardwareAcceleration: videoOptions.hardwareAcceleration,
     latencyMode: videoOptions.latencyMode,
     contentHint: 'detail',
-    keyFrameInterval: 8,
+    keyFrameInterval: 10,
     alpha: 'discard',
   });
   output.addVideoTrack(videoSource, { frameRate: FPS });
@@ -185,7 +154,7 @@ async function encodePass({
 
     if (audioSource) {
       onProgress?.(0, 'Encoding the voiceover');
-      const trimmed = await trimAudioBuffer(applyVoiceGain(audioBuffer, voiceGain), duration);
+      const trimmed = await trimAudioBuffer(applyVoiceGain(mixShukkk(audioBuffer, slides), voiceGain), duration);
       await audioSource.add(trimmed);
     }
 
@@ -255,7 +224,6 @@ export function startExport(options) {
     ...options,
     videoBitrate: preset.videoBitrate,
     audioBitrate: preset.audioBitrate,
-    quantizer: preset.quantizer,
     isAborted: () => aborted,
   };
 

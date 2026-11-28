@@ -14,15 +14,16 @@ function coverSize(source, width, height) {
 function motion(effect, t, speed = 0.75) {
   const p = smooth(t);
   const amount = Math.min(1.6, Math.max(0.25, speed));
-  const zoom = 0.1 * amount;
-  const drift = 0.34 * amount;
+  const zoom = 0.17 * amount;
+  const drift = Math.min(1, 0.92 * amount);
+  const pan = 0.16 * amount;
   switch (effect) {
     case 'zoom-out':
       return { scale: 1 + zoom * (1 - p), ax: 0.5, ay: 0.5 };
     case 'pan-left':
-      return { scale: 1 + 0.045 * amount, ax: 0.5 - drift / 2 + drift * p, ay: 0.5 };
+      return { scale: 1 + pan, ax: 0.5 - drift / 2 + drift * p, ay: 0.5 };
     case 'pan-right':
-      return { scale: 1 + 0.045 * amount, ax: 0.5 + drift / 2 - drift * p, ay: 0.5 };
+      return { scale: 1 + pan, ax: 0.5 + drift / 2 - drift * p, ay: 0.5 };
     case 'ken-burns':
       return {
         scale: 1 + zoom * p,
@@ -35,7 +36,7 @@ function motion(effect, t, speed = 0.75) {
   }
 }
 
-const MAX_ZOOM = 1.2;
+const MAX_ZOOM = 1.32;
 
 export async function prepareExportSources(imageMap, width, height) {
   const prepared = new Map();
